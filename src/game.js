@@ -1,50 +1,50 @@
 import { INQ } from "./data";
-export const CFG = { SPEED: 10, SLOW: 0.3, END: 3660, SW: 2 }; // SPEED: שניות משחק לכל שנייה אמיתית
+export const CFG = { SPEED: 10, SLOW: 0.3, END: 3660, SW: 2, PRO: 2, VOL: 3 }; // SPEED: שניות משחק לכל שנייה אמיתית
 export const W = { crit: 3, high: 2, med: 1.3, low: 0.8 };
 const PTS = { great: 1, ok: 0.55, bad: 0.1, late: 0 };
 const GEN = {
   o: "הפנייה טופלה, אבל לא בדרך האופטימלית.",
   b: "ההחלטה לא התאימה למה שהפונה היה צריך. הפנייה נסגרה בלי מענה אמיתי.",
   l: "הפונה ויתר והפנייה נסגרה. לא ידוע אם פנה למקום אחר.",
+  lm: "ההחלטה התעכבה, והמצב הידרדר מעצמו.",
 };
-const VOLS = [
-  { n: "נועה", lv: "vet" }, { n: "אורי", lv: "vet" },
-  { n: "מיכל", lv: "new" }, { n: "דניאל", lv: "new" },
-];
 const ORDER = [0, 4, 2, 6, 1, 5, 3, 7];
-export const newGame = () => ({
-  t: 0, q: [], res: [], log: [], card: null, toast: null, over: false, ev: [], sw: CFG.SW,
-  vols: VOLS.map((v) => ({ ...v, e: 100, busy: 0, job: "" })),
+export const newGame = (scn) => ({
+  t: 0, scn, q: [], res: [], log: [], card: null, toast: null, over: false, ev: [], sw: CFG.SW, pm: {},
+  cap: { pro: Array(CFG.PRO).fill(0), vol: Array(CFG.VOL).fill(0) },
+  sched: INQ.filter((d) => !d.ev || d.ev.includes(scn)),
 });
+export const free = (g, k) => g.cap[k].filter((b) => b <= g.t).length;
 const freeSlot = (q) => ORDER.find((i) => !q.some((x) => x.slot === i)) ?? 0;
-const clone = (g) => ({ ...g, q: g.q.map((x) => ({ ...x })), vols: g.vols.map((v) => ({ ...v })), res: [...g.res], log: [...g.log], ev: [] });
+const clone = (g) => ({ ...g, q: g.q.map((x) => ({ ...x })), res: [...g.res], log: [...g.log], ev: [], pm: { ...g.pm }, cap: { pro: [...g.cap.pro], vol: [...g.cap.vol] } });
+const applyFx = (g, fx) => fx && Object.keys(fx).forEach((k) => { g.pm[k] = (g.pm[k] || 1) * fx[k]; });
 
 function resolve(g, q, out, text, act, silent) {
   g.q = g.q.filter((x) => x.id !== q.id);
-  g.res.push({ id: q.id, who: q.who, u: q.u, out, text, tip: q.tip, act, ch: q.ch });
+  g.res.push({ id: q.id, who: q.who, u: q.u, out, text, tip: q.tip, act, ch: q.ch, kind: q.kind });
   g.log.unshift({ id: q.id, out, who: q.who });
   if (silent) return;
-  if (out === "late") g.toast = { text: "הפנייה נעלמה: " + q.who, at: Date.now() };
+  if (out === "late" && q.kind !== "mgmt") g.toast = { text: "הפנייה נעלמה: " + q.who, at: Date.now() };
   else g.card = { id: q.id, who: q.who, ch: q.ch, out, text, tip: q.tip, at: Date.now() };
 }
 
 export function tick(G, dt) {
   const g = clone(G);
   g.t += dt;
-  INQ.forEach((d) => {
+  g.sched.forEach((d) => {
     if (g.t >= d.at * 60 && !g.q.some((x) => x.id === d.id) && !g.res.some((r) => r.id === d.id)) {
-      g.q.push({ ...d, left: d.p * 60, held: false, holds: 0, slot: freeSlot(g.q) });
-      g.ev.push({ k: "spawn", u: d.u });
+      const pmax = d.p * 60 * (g.pm[d.ch] || 1);
+      g.q.push({ ...d, txt: d.txtBy ? d.txtBy[g.scn] : d.txt, left: pmax, pmax, held: false, holds: 0, slot: freeSlot(g.q) });
+      g.ev.push({ k: "spawn", u: d.kind ? "med" : d.u });
     }
   });
   [...g.q].forEach((x) => {
     x.left -= dt * (x.held ? 0.35 : 1);
-    if (x.left <= 0) { resolve(g, x, "late", x.l || GEN.l, "timeout"); g.ev.push({ k: "late" }); }
-  });
-  g.vols.forEach((v) => {
-    if (v.busy > g.t) return;
-    v.job = "";
-    v.e = Math.min(100, v.e + dt * 0.012);
+    if (x.left <= 0) {
+      applyFx(g, x.lfx);
+      resolve(g, x, "late", x.l || (x.kind ? GEN.lm : GEN.l), "timeout");
+      g.ev.push({ k: "late" });
+    }
   });
   if (g.t >= CFG.END) {
     [...g.q].forEach((x) => resolve(g, x, "late", "", "timeout", true));
@@ -58,6 +58,7 @@ export function decide(G, id, act, arg) {
   const q = g.q.find((x) => x.id === id);
   if (!q) return G;
   if (act === "wait") {
+    if (q.kind) return G;
     q.held = true; q.holds++;
     g.toast = { text: "נשלחה הודעת קבלה: ״אנחנו איתך, מישהו יתפנה בקרוב״", at: Date.now() };
     return g;
@@ -65,20 +66,20 @@ export function decide(G, id, act, arg) {
   const alt = q.alt || [];
   const needTake = ["vet", "any", "new"].includes(q.need);
   let out, text;
-  if (act === "take") {
-    const v = g.vols[arg];
-    if (!v || v.busy > g.t) return G;
+  if (act === "opt") {
+    const o = q.opts[arg];
+    out = o.out; text = o.t; applyFx(g, o.fx);
+  } else if (act === "take") {
+    const arr = g.cap[arg];
+    const i = arr.findIndex((b) => b <= g.t);
+    if (i < 0) return G;
+    arr[i] = g.t + q.h * 60;
     if (needTake) {
-      if (q.need === "vet" && v.lv === "new") { out = "bad"; text = q.n || GEN.b; }
-      else if (q.need === "new" && v.lv === "vet") { out = "ok"; text = q.o || GEN.o; }
-      else {
-        out = "great"; text = q.g;
-        if (v.e < 25) { out = "ok"; text += " אך המתנדב/ת היה/תה מותש/ת, ואיכות המענה נפגעה."; }
-      }
-    } else if (alt.includes("take") || (alt.includes("vet") && v.lv === "vet")) { out = "ok"; text = q.o || GEN.o; }
+      if (q.need === "vet" && arg === "vol") { out = "bad"; text = q.n || GEN.b; }
+      else if (q.need === "new" && arg === "pro") { out = "ok"; text = q.o || GEN.o; }
+      else { out = "great"; text = q.g; }
+    } else if (alt.includes("take") || (alt.includes("vet") && arg === "pro")) { out = "ok"; text = q.o || GEN.o; }
     else { out = "bad"; text = q.b || GEN.b; }
-    v.e = Math.max(0, v.e - q.h * (q.u === "crit" ? 3 : 2.2));
-    v.busy = g.t + q.h * 60; v.job = q.who;
   } else if (act === "refer") {
     if (arg === "sw") { if (g.sw <= 0) return G; g.sw--; }
     if (q.need === arg) { out = "great"; text = q.g; }
@@ -106,6 +107,7 @@ export function summary(res) {
   return {
     pct,
     safety: score(res.filter((r) => r.u === "crit" || r.u === "high")),
+    mgmt: score(res.filter((r) => r.kind === "mgmt")),
     served: Math.round((100 * res.filter((r) => r.out !== "late").length) / n),
     judgment: Math.round((100 * res.filter((r) => r.out === "great").length) / n),
     worst: [...res].sort((a, b) => PTS[a.out] - PTS[b.out] || W[b.u] - W[a.u])[0],

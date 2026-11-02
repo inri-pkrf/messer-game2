@@ -5,8 +5,8 @@ import "@fontsource/heebo/400.css";
 import "@fontsource/heebo/700.css";
 import "@fontsource/heebo/900.css";
 import "./App.css";
-import { CH } from "./data";
-import { CFG, newGame, tick, decide, summary, unlock, sfx } from "./game";
+import { CH, SCEN } from "./data";
+import { newGame, tick, decide, summary, unlock, sfx, free } from "./game";
 
 const STAGE_W = 1080, STAGE_H = 1920; // מסך הטוטם (לאורך). לשינוי: ערכי הקבועים כאן
 const ANG = [-90, -45, 0, 45, 90, 135, 180, 225];
@@ -39,9 +39,14 @@ function Sheet({ q, G, mode, setMode, onDecide, onClose }) {
     <div className="sheet">
       <button className="x" onClick={onClose}>חזרה ללוח</button>
       <div className="sh-head"><span className="ic">{c.ic}</span><div><b>{c.n}</b><br />{q.who}</div></div>
-      <blockquote>{typed}<i className="caret" /></blockquote>
+      <blockquote className={q.kind ? "mg" : ""}>{typed}<i className="caret" /></blockquote>
       <h3>מה את מחליטה?</h3>
-      {mode === "main" && (
+      {q.kind === "mgmt" && (
+        <div className="list opts">
+          {q.opts.map((o, i) => (<button key={i} onClick={() => onDecide("opt", i)}>{o.l}</button>))}
+        </div>
+      )}
+      {!q.kind && mode === "main" && (
         <div className="acts">
           <button onClick={() => setMode("take")}><em>📞</em>לקחת עכשיו<small>איש צוות יהיה תפוס</small></button>
           <button onClick={() => onDecide("wait")}><em>⏳</em>להמתין<small>הודעת קבלה, הזמן מואט</small></button>
@@ -49,21 +54,14 @@ function Sheet({ q, G, mode, setMode, onDecide, onClose }) {
           <button onClick={() => onDecide("close")}><em>✓</em>לסגור בקצרה<small>מענה קצר או הפניה למשרד</small></button>
         </div>
       )}
-      {mode === "take" && (
+      {!q.kind && mode === "take" && (
         <div className="list">
-          {G.vols.map((v, i) => {
-            const busy = v.busy > G.t;
-            return (
-              <button key={i} disabled={busy} onClick={() => onDecide("take", i)}>
-                <b>{v.n}</b> {v.lv === "vet" ? "איש/ת צוות מקצועי/ת" : "מתנדב/ת"}
-                <small>{busy ? "בשיחה כרגע" : v.e < 25 ? "מותש/ת מאוד" : "אנרגיה " + Math.round(v.e) + "%"}</small>
-              </button>
-            );
-          })}
+          <button disabled={!free(G, "pro")} onClick={() => onDecide("take", "pro")}>👩‍⚕️ איש/ת צוות מקצועי/ת <small>פנויים: {free(G, "pro")}</small></button>
+          <button disabled={!free(G, "vol")} onClick={() => onDecide("take", "vol")}>🙋 מתנדב/ת <small>פנויים: {free(G, "vol")}</small></button>
           <button className="back" onClick={() => setMode("main")}>חזרה</button>
         </div>
       )}
-      {mode === "refer" && (
+      {!q.kind && mode === "refer" && (
         <div className="list">
           <button onClick={() => onDecide("refer", "emg")}>🚨 חירום: מד״א / משטרה / פקע״ר</button>
           <button disabled={G.sw <= 0} onClick={() => onDecide("refer", "sw")}>🧑‍⚕️ צוות פסיכו-סוציאלי בכיר <small>נותרו {G.sw}</small></button>
@@ -83,19 +81,22 @@ export default function App() {
   const [sel, setSel] = useState(null);
   const [mode, setMode] = useState("main");
   const [pick, setPick] = useState(null);
+  const [scn, setScn] = useState("built");
   const focus = useRef(false);
   const touched = useRef(Date.now());
   const q = G && sel ? G.q.find((x) => x.id === sel) : null;
   focus.current = !!(q || (G && G.card));
 
-  const start = () => { unlock(); setG(newGame()); setSel(null); setMode("main"); setScreen("play"); };
+  const start = () => { unlock(); setG(newGame(scn)); setSel(null); setMode("main"); setScreen("play"); };
+  const sc = SCEN.find((x) => x.id === scn);
+  const brief = useType(screen === "brief" ? sc.brief : "", 24);
 
   useEffect(() => {
     if (screen !== "play") return;
     let last = performance.now();
     const id = setInterval(() => {
       const now = performance.now(), dt = (now - last) / 1000; last = now;
-      setG((g) => (!g || g.over ? g : tick(g, dt * CFG.SPEED * (focus.current ? CFG.SLOW : 1))));
+      setG((g) => (!g || g.over ? g : tick(g, dt * 10 * (focus.current ? 0.3 : 1))));
     }, 100);
     return () => clearInterval(id);
   }, [screen]);
@@ -140,7 +141,7 @@ export default function App() {
     <div className="root" onPointerDown={() => (touched.current = Date.now())}>
       <div className="stage" style={{ width: STAGE_W, height: STAGE_H, transform: `translate(-50%,-50%) scale(${scale})` }}>
         {screen === "attract" && (
-          <div className="attract" onClick={start}>
+          <div className="attract" onClick={() => setScreen("scen")}>
             <div className="ripples"><i /><i /><i /><i /></div>
             <h1>שעה אחת</h1>
             <h2>במרכז הסיוע</h2>
@@ -152,6 +153,27 @@ export default function App() {
             </ul>
             <button className="go">התחילי משמרת</button>
             <small className="disc">התרחישים מומצאים ומבוססים על חומרי ההכשרה למס״ר. הם אינם נוהל רשמי.</small>
+          </div>
+        )}
+
+        {screen === "scen" && (
+          <div className="scen">
+            <h2>איזה אירוע?</h2>
+            <p>בחרי את סוג האירוע. הוא קובע אילו פניות והחלטות יגיעו אליך.</p>
+            {SCEN.map((x) => (
+              <button key={x.id} onClick={() => { setScn(x.id); setScreen("brief"); }}>
+                <em>{x.ic}</em><b>{x.n}</b><span>{x.d}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {screen === "brief" && (
+          <div className="scen brief">
+            <h2>{sc.n}</h2>
+            <blockquote>{brief}<i className="caret" /></blockquote>
+            <button className="go" onClick={start}>פתחי את המרכז</button>
+            <button className="back" onClick={() => setScreen("scen")}>חזרה לבחירת אירוע</button>
           </div>
         )}
 
@@ -170,11 +192,11 @@ export default function App() {
               <div className="rg r1" /><div className="rg r2" /><div className="rg r3" /><div className="beam" />
               <div className="core"><b>המרכז</b><span>{G.res.filter((r) => r.out !== "late").length} טופלו · {G.res.filter((r) => r.out === "late").length} נשרו</span></div>
               {G.q.map((x) => {
-                const f = Math.max(0, x.left / (x.p * 60)), r = 250 + 150 * f, a = (ANG[x.slot] * Math.PI) / 180;
+                const f = Math.max(0, x.left / x.pmax), r = 250 + 150 * f, a = (ANG[x.slot] * Math.PI) / 180;
                 return (
-                  <button key={x.id} className={"bub" + (f < 0.3 ? " hot" : "") + (x.held ? " held" : "")} style={{ left: 500 + r * Math.cos(a) - 85, top: 500 + r * Math.sin(a) - 85 }} onClick={() => { setSel(x.id); setMode("main"); }}>
+                  <button key={x.id} className={"bub" + (x.kind ? " mg" : "") + (f < 0.3 ? " hot" : "") + (x.held ? " held" : "")} style={{ left: 500 + r * Math.cos(a) - 85, top: 500 + r * Math.sin(a) - 85 }} onClick={() => { setSel(x.id); setMode("main"); }}>
                     <svg viewBox="0 0 170 170"><circle cx="85" cy="85" r="78" className="tr" /><circle cx="85" cy="85" r="78" style={{ stroke: `hsl(${10 + 150 * f} 85% 60%)` }} strokeDasharray={490} strokeDashoffset={490 * (1 - f)} /></svg>
-                    <span className="ic">{x.held ? "⏳" : CH[x.ch].ic}</span><span className="cn">{CH[x.ch].n}</span>
+                    <span className="ic">{x.held ? "⏳" : CH[x.ch].ic}</span><span className="cn">{x.kind ? "ניהול" : CH[x.ch].n}</span>
                   </button>
                 );
               })}
@@ -182,17 +204,18 @@ export default function App() {
             </div>
 
             <div className="vols">
-              {G.vols.map((v, i) => {
-                const busy = v.busy > G.t;
-                return (
-                  <div key={i} className={"vol" + (busy ? " busy" : "")}>
-                    <div className="av" style={{ "--e": v.e + "%" }}><b>{v.n[0]}</b></div>
-                    <strong>{v.n}</strong>
-                    <small>{busy ? "בשיחה, עוד " + Math.ceil((v.busy - G.t) / 60) + " דק׳" : v.e < 25 ? "מותש/ת" : v.lv === "vet" ? "צוות מקצועי · פנוי" : "מתנדב/ת · פנוי/ה"}</small>
-                  </div>
-                );
-              })}
-              <div className="vol sw"><div className="av"><b>{G.sw}</b></div><strong>צוות בכיר</strong><small>{G.sw ? "זמינה" : "אזלה"}</small></div>
+              {[["צוות מקצועי", "pro"], ["מתנדבים", "vol"]].map(([n, k]) => (
+                <div key={k} className="vol">
+                  <strong>{n}</strong>
+                  <div className="pips">{G.cap[k].map((b, i) => (<i key={i} className={"pip" + (b <= G.t ? " on" : "")} />))}</div>
+                  <small>{free(G, k)} פנויים</small>
+                </div>
+              ))}
+              <div className="vol sw">
+                <strong>צוות בכיר</strong>
+                <div className="pips">{[0, 1].map((i) => (<i key={i} className={"pip" + (i < G.sw ? " on" : "")} />))}</div>
+                <small>{G.sw ? G.sw + " הפעלות" : "אזל"}</small>
+              </div>
             </div>
 
             <div className="log">
@@ -228,13 +251,14 @@ export default function App() {
               <b>{sum.pct}</b>
             </div>
             <h3>{sum.title}</h3>
+            <p className="sc">{sc.n}</p>
             <div className="axes">
-              {[["בטיחות בפניות הדחופות", sum.safety], ["זמינות: כמה פניות לא נשרו", sum.served], ["שיקול דעת: החלטות מדויקות", sum.judgment]].map(([n, v]) => (
+              {[["בטיחות בפניות הדחופות", sum.safety], ["זמינות: כמה פניות לא נשרו", sum.served], ["שיקול דעת: החלטות מדויקות", sum.judgment], ["החלטות ניהול", sum.mgmt]].map(([n, v]) => (
                 <div key={n}><span>{n}</span><div><i style={{ width: v + "%" }} /></div><b>{v}</b></div>
               ))}
             </div>
             <div className="tl">
-              {G.res.map((r) => (<button key={r.id} className={"d " + r.out + (shown && shown.id === r.id ? " on" : "")} onClick={() => setPick(r.id)} title={r.who}>{r.id}</button>))}
+              {G.res.map((r, i) => (<button key={r.id} className={"d " + r.out + (shown && shown.id === r.id ? " on" : "")} onClick={() => setPick(r.id)} title={r.who}>{i + 1}</button>))}
             </div>
             {shown && (
               <div className={"card flat " + shown.out}>
@@ -244,7 +268,7 @@ export default function App() {
                 <label>העיקרון</label><p className="tip">{shown.tip}</p>
               </div>
             )}
-            <button className="go" onClick={start}>משמרת חדשה</button>
+            <button className="go" onClick={() => setScreen("scen")}>משמרת חדשה</button>
             <small className="disc">התרחישים מומצאים ומבוססים על חומרי ההכשרה למס״ר. יש לאמת את התוכן מול הגורמים המקצועיים.</small>
           </div>
         )}

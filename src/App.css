@@ -96,3 +96,25 @@ blockquote{margin:40px 0;padding:36px 40px;background:#0b1816;border-right:8px s
 .card.flat{animation:none;padding:34px 50px;margin-bottom:26px;text-align:right}.card.flat .ct{font-size:72px}.card.flat p{font-size:34px}.card.flat .tip{font-size:32px}
 .end .go{margin-top:0;font-size:50px;padding:28px 100px;animation:none}
 @media (prefers-reduced-motion:reduce){.beam,.ripples i,.go{animation:none}}
+/* v3: משאבים, בחירת אירוע, החלטות ניהול */
+.vols{gap:20px}.vol{padding:22px 10px}.vol strong{font-size:32px;margin-bottom:12px}
+.pips{display:flex;gap:12px;justify-content:center;margin-bottom:12px}
+.pip{width:44px;height:44px;border-radius:50%;border:4px solid rgba(255,255,255,.18);transition:all .4s}
+.pip.on{background:var(--teal);border-color:var(--teal);box-shadow:0 0 18px rgba(61,219,176,.5)}
+.vol.sw .pip.on{background:var(--amber);border-color:var(--amber);box-shadow:0 0 18px rgba(242,179,94,.5)}
+.vol small{font-size:26px}
+.bub.mg{border-radius:46px;background:rgba(48,36,12,.95)}
+.bub.mg svg{display:block}.bub.mg .cn{font-size:22px;color:var(--amber)}
+blockquote.mg{min-height:150px;font-size:40px;border-color:var(--teal)}
+.list.opts button{font-size:34px;line-height:1.35;text-align:right;justify-content:flex-start;padding:26px 32px;font-weight:400}
+.scen{position:absolute;inset:0;padding:170px 80px 60px;display:flex;flex-direction:column;gap:34px;align-items:center;text-align:center}
+.scen h2{font-family:"Karantina";font-size:170px;line-height:1;color:var(--amber)}
+.scen p{font-size:40px;color:#d6e5df;margin:0 0 20px}
+.scen>button:not(.go):not(.back){width:100%;background:var(--panel);border:3px solid rgba(61,219,176,.3);border-radius:50px;padding:50px 50px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.scen>button:not(.go):not(.back):active{background:#1e3630;border-color:var(--teal)}
+.scen em{font-style:normal;font-size:110px;line-height:1}.scen>button b{font-family:"Karantina";font-size:92px;font-weight:700}
+.scen>button span{font-size:36px;color:var(--mut);line-height:1.4}
+.scen.brief blockquote{width:100%;margin:30px 0 60px;font-size:50px;min-height:520px;text-align:right}
+.scen .back{background:transparent;color:var(--mut);font-size:32px;padding:20px}
+.sc{font-size:30px;color:var(--mut);margin:-10px 0 20px}
+.axes>div{grid-template-columns:480px 1fr 70px}.axes{font-size:28px}

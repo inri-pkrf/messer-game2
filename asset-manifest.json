@@ -1,7 +1,7 @@
 {
   "files": {
     "main.css": "./static/css/main.588b6bd7.css",
-    "main.js": "./static/js/main.5a95a4f8.js",
+    "main.js": "./static/js/main.18b66153.js",
     "static/media/heebo-latin-700-normal.woff": "./static/media/heebo-latin-700-normal.882bae9e61087144dbb9.woff",
     "static/media/heebo-latin-900-normal.woff": "./static/media/heebo-latin-900-normal.44a24f25aa098b3bedd2.woff",
     "static/media/heebo-latin-400-normal.woff": "./static/media/heebo-latin-400-normal.f9c71ee28df2cd8f2074.woff",
@@ -46,10 +46,10 @@
     "static/media/karantina-latin-ext-700-normal.woff": "./static/media/karantina-latin-ext-700-normal.62591ea90fb48c6d7b82.woff",
     "index.html": "./index.html",
     "main.588b6bd7.css.map": "./static/css/main.588b6bd7.css.map",
-    "main.5a95a4f8.js.map": "./static/js/main.5a95a4f8.js.map"
+    "main.18b66153.js.map": "./static/js/main.18b66153.js.map"
   },
   "entrypoints": [
     "static/css/main.588b6bd7.css",
-    "static/js/main.5a95a4f8.js"
+    "static/js/main.18b66153.js"
   ]
 }
